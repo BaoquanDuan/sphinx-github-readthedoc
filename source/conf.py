@@ -65,7 +65,7 @@ exclude_patterns = ['recommonmark']
 
 <<<<<<< HEAD
 =======
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx-rtd-theme'
 >>>>>>> fae03db2c18ef14198079983e285fc9bb716c510
 html_static_path = ['_static']
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx-rtd-theme'
