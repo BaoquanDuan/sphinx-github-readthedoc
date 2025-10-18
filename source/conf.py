@@ -63,5 +63,9 @@ exclude_patterns = ['recommonmark']
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
+<<<<<<< HEAD
+=======
+html_theme = 'sphinx_rtd_theme'
+>>>>>>> fae03db2c18ef14198079983e285fc9bb716c510
 html_static_path = ['_static']
 html_theme = 'sphinx_rtd_theme'
