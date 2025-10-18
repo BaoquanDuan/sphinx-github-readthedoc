@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>&lt;no title&gt; &#8212; CHESS  文档</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/jquery.js?v=5d32c60e"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="_static/documentation_options.js?v=7d86a446"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/translations.js?v=beaddf03"></script>
+    <link rel="index" title="索引" href="genindex.html" />
+    <link rel="search" title="搜索" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <p>---
+title: Causal Heterogeneity using Summary Statistics [CHESS]
+author: Yadong Yang, Minxi Bai, Jiacheng Miao, Jin Liu, Qiongshi Lv and Xingjie Shi
+output:</p>
+<blockquote>
+<div><dl class="simple">
+<dt>html_document:</dt><dd><p>df_print: paged</p>
+</dd>
+</dl>
+<p>latex_engine: xelatex
+word_document: default
+pdf_document: default</p>
+</div></blockquote>
+<dl class="simple">
+<dt>editor_options:</dt><dd><dl class="simple">
+<dt>markdown:</dt><dd><p>wrap: 72</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p>---</p>
+<p><code class="docutils literal notranslate"><span class="pre">`{r</span> <span class="pre">setup,</span> <span class="pre">include=FALSE}</span>
+<span class="pre">knitr::opts_chunk$set(echo</span> <span class="pre">=</span> <span class="pre">TRUE)</span>
+<span class="pre">`</span></code></p>
+<p>### Introduction</p>
+<p>This vignette provides an introduction to the <em>CHESS</em> package. R package
+<em>CHESS</em> implements CHESS for causal heterogeneity using summary
+statistics.</p>
+<p>Install the development version of <em>CHESS</em> by use of the 'devtools'
+package. Note that <em>CHESS</em> depends on the 'Rcpp' and 'RcppArmadillo'
+package, which also requires appropriate setting of Rtools and Xcode for
+Windows and Mac OS/X, respectively.</p>
+<p>To install this package, run the following command in R</p>
+<p><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">library(remotes)</span>
+<span class="pre">install_github(&quot;xxx/CHESS&quot;)</span>
+<span class="pre">`</span></code></p>
+<p>Load the package using the following command:</p>
+<p><code class="docutils literal notranslate"><span class="pre">`{r}</span>
+<span class="pre">library(CHESS)</span>
+<span class="pre">`</span></code></p>
+<p>### Fit CHESS using simulated data</p>
+<p>We first generate the genotype data and environmental variable:</p>
+<p><code class="docutils literal notranslate"><span class="pre">`{r}</span>
+<span class="pre">library(mvtnorm)</span>
+<span class="pre">library(MASS)</span>
+<span class="pre">set.seed(2025)</span>
+<span class="pre">`</span></code></p>
+<p><a href="#id1"><span class="problematic" id="id2">``</span></a><a href="#id3"><span class="problematic" id="id4">`</span></a>{r}
+n_exp &lt;- 80000;
+n_out &lt;- 80000;
+m &lt;- 1000;
+h_g1 &lt;- 0.3;
+h_g3 &lt;- 0.1;
+b1 &lt;- 0;
+b4 &lt;- 0.3;
+cor_g1g3 &lt;- 0.4;
+rhoxy &lt;- 0.6;</p>
+<p>maf &lt;- runif(m, 0.05, 0.5);
+G &lt;- matrix(rbinom((n_exp + n_out) * m, 2, rep(maf, each = n_exp + n_out)),</p>
+<blockquote>
+<div><p>nrow = n_exp + n_out, ncol = m);</p>
+</div></blockquote>
+<p>G &lt;- scale(G, center = TRUE, scale = FALSE);
+E_x &lt;- rnorm(n_exp + n_out)
+<a href="#id5"><span class="problematic" id="id6">``</span></a><a href="#id7"><span class="problematic" id="id8">`</span></a></p>
+<p>Now simulate the genetic effect sizes. The main genetic effects ($gamma_1$)
+and G×E interaction effects ($gamma_3$) are generated as correlated multivariate
+normal variables with specified heritabilities.</p>
+<p><a href="#id9"><span class="problematic" id="id10">``</span></a><a href="#id11"><span class="problematic" id="id12">`</span></a>{r}
+sigma2g1 &lt;- h_g1 / m;
+sigma2g3 &lt;- h_g3 / m;</p>
+<dl class="simple">
+<dt>cov_matrix &lt;- matrix(c(sigma2g1,</dt><dd><p>cor_g1g3 * sqrt(sigma2g1 * sigma2g3),
+cor_g1g3 * sqrt(sigma2g1 * sigma2g3),
+sigma2g3), ncol = 2);</p>
+</dd>
+</dl>
+<p>gamma1_3 &lt;- rmvnorm(m, mean = c(0, 0), sigma = cov_matrix)
+gamma_1x &lt;- gamma1_3[, 1];
+gamma_3x &lt;- gamma1_3[, 2]
+<a href="#id13"><span class="problematic" id="id14">``</span></a><a href="#id15"><span class="problematic" id="id16">`</span></a></p>
+<p>Generate the exposure ($X$) and outcome ($Y$) variables With the genetic effects defined.</p>
+<p><a href="#id17"><span class="problematic" id="id18">``</span></a><a href="#id19"><span class="problematic" id="id20">`</span></a>{r}
+GE &lt;- G * E_x;</p>
+<p>noise_x &lt;- rnorm(n_exp + n_out, sd = sqrt(1 - h_g1 - h_g3));
+X &lt;- G %*% gamma_1x + GE %*% gamma_3x + noise_x;</p>
+<p>noise_y &lt;- rnorm(n_exp + n_out, sd = sqrt(1 - b1^2 - b4^2));
+Y &lt;- X * b1 + GE %*% gamma_3x * b4 + noise_y;</p>
+<p>exp_gwas &lt;- X[1:n_exp];
+exp_gwis &lt;- X[1:n_exp];
+exp_E &lt;- E_x[1:n_exp];
+out_gwas &lt;- Y[(n_exp + 1):(n_exp + n_out)];
+out_gwis &lt;- Y[(n_exp + 1):(n_exp + n_out)];
+out_E &lt;- E_x[(n_exp + 1):(n_exp + n_out)]
+<a href="#id21"><span class="problematic" id="id22">``</span></a><a href="#id23"><span class="problematic" id="id24">`</span></a></p>
+<p>We then conduct single-variant analysis to obtain the summary statistics.</p>
+<p><a href="#id25"><span class="problematic" id="id26">``</span></a><a href="#id27"><span class="problematic" id="id28">`</span></a>{r}
+get_sumstats &lt;- function(G, pheno, interaction = FALSE, E = NULL) {</p>
+<blockquote>
+<div><p>betas &lt;- numeric(ncol(G));
+ses &lt;- numeric(ncol(G));</p>
+<dl>
+<dt>for(i in 1:ncol(G)) {</dt><dd><dl class="simple">
+<dt>if(interaction) {</dt><dd><p># Model with G×E interaction term
+model &lt;- lm(pheno ~ G[, i] + E + G[, i]:E);
+betas[i] &lt;- coef(model)[4];
+ses[i] &lt;- summary(model)$coefficients[4, 2];</p>
+</dd>
+<dt>} else {</dt><dd><p># Standard additive genetic model
+model &lt;- lm(pheno ~ G[, i]);
+betas[i] &lt;- coef(model)[2];
+ses[i] &lt;- summary(model)$coefficients[2, 2]</p>
+</dd>
+</dl>
+<p>}</p>
+</dd>
+</dl>
+<p>}
+return(list(beta = betas, se = ses))</p>
+</div></blockquote>
+<p>}</p>
+<p>exp_gwas_sum &lt;- get_sumstats(G[1:n_exp, ], exp_gwas);
+exp_gwis_sum &lt;- get_sumstats(G[1:n_exp, ], exp_gwis, interaction = TRUE, E = exp_E);</p>
+<p>out_gwas_sum &lt;- get_sumstats(G[(n_exp + 1):(n_exp + n_out), ], out_gwas);
+out_gwis_sum &lt;- get_sumstats(G[(n_exp + 1):(n_exp + n_out), ], out_gwis,</p>
+<blockquote>
+<div><p>interaction = TRUE, E = out_E)</p>
+</div></blockquote>
+<p><a href="#id29"><span class="problematic" id="id30">``</span></a><a href="#id31"><span class="problematic" id="id32">`</span></a></p>
+<p>We select genetic instruments using a p-value threshold. SNPs in either the GWAS
+or GWIS analysis are included in the union set of instruments.</p>
+<p><a href="#id33"><span class="problematic" id="id34">``</span></a><a href="#id35"><span class="problematic" id="id36">`</span></a>{r}
+p_threshold &lt;- 0.01;</p>
+<p>pvals_gwas &lt;- 2 * pnorm(-abs(exp_gwas_sum$beta / exp_gwas_sum$se));
+iv_gwas &lt;- which(pvals_gwas &lt; p_threshold);</p>
+<p>pvals_gwis &lt;- 2 * pnorm(-abs(exp_gwis_sum$beta / exp_gwis_sum$se));
+iv_gwis &lt;- which(pvals_gwis &lt; p_threshold);</p>
+<p>iv_union &lt;- union(iv_gwas, iv_gwas);
+R &lt;- diag(length(iv_union))
+<a href="#id37"><span class="problematic" id="id38">``</span></a><a href="#id39"><span class="problematic" id="id40">`</span></a></p>
+<p>Finally, we apply the CHESS methods.</p>
+<p><a href="#id41"><span class="problematic" id="id42">``</span></a><a href="#id43"><span class="problematic" id="id44">`</span></a>{r}
+gamma_hat &lt;- exp_gwas_sum$beta[iv_union];
+gamma3_hat &lt;- exp_gwis_sum$beta[iv_union];
+Gamma_hat &lt;- out_gwas_sum$beta[iv_union];
+Gamma3_hat &lt;- out_gwis_sum$beta[iv_union];</p>
+<p>se_gamma &lt;- exp_gwas_sum$se[iv_union];
+se_gamma3 &lt;- exp_gwis_sum$se[iv_union];
+se_Gamma &lt;- out_gwas_sum$se[iv_union];
+se_Gamma3 &lt;- out_gwis_sum$se[iv_union];</p>
+<dl class="simple">
+<dt>res &lt;- CHESS(gamma_hat, gamma3_hat, Gamma_hat, Gamma3_hat,</dt><dd><p>se_gamma, se_gamma3, se_Gamma, se_Gamma3, R, rhoe = 0, rhoee = 0);</p>
+</dd>
+</dl>
+<p>beta1_hat &lt;- res$Beta1.hat;
+se1_hat &lt;- res$Beta1.se;
+pval1 &lt;- res$Beta1.pval;
+beta4_hat &lt;- res$Beta4.hat;
+se4_hat &lt;- res$Beta4.se;
+pval4 &lt;- res$Beta4.pval
+<a href="#id45"><span class="problematic" id="id46">``</span></a><a href="#id47"><span class="problematic" id="id48">`</span></a></p>
+<p>beta1_hat, se1_hat, pval1 are estimated average causal effect, corresponding standard error and p-value of beta1_hat. beta4_hat, se4_hat, pval4 are estimated heterogeneity causal effect, corresponding standard error and p-value of beta4_hat.</p>
+<p>### Fit CHESS using Testosterone-BD study with environmental factor sex</p>
+<p>Furthermore, we give an example to illustrate the implements of CHESS
+for real data analysis. The following
+datasets ('Testosterone.GWAS.txt.gz', 'Testosterone.GWIS.txt.gz',
+'BD.GWAS.txt.gz', 'BD.GWIS.txt.gz', 'g1000_eur.bed','g1000_eur.fam',
+'g1000_eur.bim', 'all_eur.bed') should be prepared. Download here
+&lt;<a class="reference external" href="https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</a>&gt;.</p>
+<p><code class="docutils literal notranslate"><span class="pre">`{r}</span>
+<span class="pre">expgwas</span> <span class="pre">&lt;-</span> <span class="pre">&quot;Testosterone.GWAS.txt.gz&quot;;</span>
+<span class="pre">expgwis</span> <span class="pre">&lt;-</span> <span class="pre">&quot;Testosterone.GWIS.txt.gz&quot;;</span>
+<span class="pre">outgwas</span> <span class="pre">&lt;-</span> <span class="pre">&quot;BD.GWAS.txt.gz&quot;;</span>
+<span class="pre">outgwis</span> <span class="pre">&lt;-</span> <span class="pre">&quot;BD.GWIS.txt.gz&quot;;</span>
+<span class="pre">stringname3</span> <span class="pre">&lt;-</span> <span class="pre">&quot;g1000_eur&quot;;</span>
+<span class="pre">block_file</span> <span class="pre">&lt;-</span> <span class="pre">&quot;all_eur.bed&quot;;</span>
+<span class="pre">`</span></code></p>
+<p>'expgwas', 'expgwis', 'outgwas', 'outgwis' are the datasets names for
+exposure GWAS, exposure GWIS, outcome GWAS and outcome GWIS,
+respectively. Here the environment variable is sex.</p>
+<p>These four datasets must have the following format (note that it must be
+tab delimited): including columns as SNP,CHR,BP,A1,A2,BETA,SE,P.</p>
+<p><code class="docutils literal notranslate"><span class="pre">`{r,</span> <span class="pre">echo=FALSE}</span>
+<span class="pre">example</span> <span class="pre">&lt;-</span> <span class="pre">read.table(&quot;example.txt&quot;,</span> <span class="pre">header</span> <span class="pre">=</span> <span class="pre">TRUE)</span>
+<span class="pre">`</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">`{r,</span> <span class="pre">echo=FALSE,</span> <span class="pre">results='asis'}</span>
+<span class="pre">knitr::kable(example,</span> <span class="pre">digits</span> <span class="pre">=</span> <span class="pre">6,</span> <span class="pre">caption</span> <span class="pre">=</span> <span class="pre">&quot;\\label{exp}Data</span> <span class="pre">format</span> <span class="pre">used</span> <span class="pre">for</span> <span class="pre">exposure</span> <span class="pre">and</span> <span class="pre">outcome</span> <span class="pre">data.&quot;)</span>
+<span class="pre">`</span></code></p>
+<p>If GWAS and GWIS data cannot be directly obtained, and the environmental factor is
+a binary variable (e.g., sex), one can generate the required GWAS and GWIS inputs
+for CHESS by converting the sex-stratified summary statistics
+(e.g., Testosterone.male.txt and Testosterone.female.txt) as follows.</p>
+<p>The GWAS summary statistics can be generated by meta-analyzing the male and female
+data using inverse-variance weighting, as implemented in METAL
+(<a class="reference external" href="https://github.com/statgen/METAL">https://github.com/statgen/METAL</a>). After installing the software, the analysis
+can be executed via the command line (e.g., in Linux or other shell environments)
+using a configuration file. A sample configuration file 'metal.config.Testosterone.txt'
+is available for download &lt;<a class="reference external" href="https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</a>&gt;.</p>
+<p><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">metal</span> <span class="pre">metal.config.Testosterone.txt</span>
+<span class="pre">`</span></code></p>
+<p>The SNP effects and standard errors for GWIS summary statistics were derived
+based on the following formula, assuming sex coded as Male=1, Female=-1.
+Allele direction must be aligned prior to analyzing sex-stratified data.</p>
+<p>$$hat{b}_{gwis,j}=frac{1}{2}(hat{b}_{male,j}-hat{b}_{female,j})$$
+$$se(hat{b}_{gwis,j})=frac{1}{2}sqrt{(se(hat{b}_{male,j})^2+se(hat{b}_{female,j})^2}$$</p>
+<p>'stringname3' is the name of reference panel data. Here we use samples
+from '1000 Genomes Project European panel' which is in plink binary
+format. 'block_file' is used to partition the whole genome into blocks.</p>
+<p><cite>matchpanel</cite> function is used to match a GWAS/GWIS dataset with the
+reference panel data, alongside initial data quality control. The output
+includes a data frame (<cite>$data</cite>) and the corresponding storage path
+(<cite>$data_dir</cite>).</p>
+<p><code class="docutils literal notranslate"><span class="pre">`{r}</span>
+<span class="pre">expgwas.match</span> <span class="pre">&lt;-</span> <span class="pre">matchpanel(expgwas,stringname3)$data_dir;</span>
+<span class="pre">expgwis.match</span> <span class="pre">&lt;-</span> <span class="pre">matchpanel(expgwis,stringname3)$data_dir;</span>
+<span class="pre">outgwas.match</span> <span class="pre">&lt;-</span> <span class="pre">matchpanel(outgwas,stringname3)$data_dir;</span>
+<span class="pre">outgwis.match</span> <span class="pre">&lt;-</span> <span class="pre">matchpanel(outgwis,stringname3)$data_dir;</span>
+<span class="pre">`</span></code></p>
+<p>Having given that we have the formatted data, we can use the <cite>ivselect</cite>
+function to screen the instrumental variables (IVs) and estimate the
+correlations among those IVs. <cite>plink_dir</cite> specifies the local path to
+the PLINK executable; if not provided, PLINK will be automatically
+downloaded. <cite>pval_cutoff_gwas</cite> and <cite>pval_cutoff_gwis</cite> define the P-value
+thresholds for the exposure GWAS and GWIS, respectively. <cite>r2_cutoff</cite> and
+<cite>kb_cutoff</cite> are used in LD clumping to specify the $r^2$ threshold and
+the physical distance (in kilobases) between SNPs. <cite>maf_cutoff</cite> sets the
+threshold for minor allele frequency. <cite>lam</cite> denotes the shrinkage
+parameter used in the regularization of the LD matrix. <cite>CoreNum</cite>
+indicates the number of CPU cores to be used for parallel computation.
+<cite>intersect_mode</cite> controls whether to merge GWAS and GWIS IVs using intersection
+(default: union).</p>
+<p><code class="docutils literal notranslate"><span class="pre">`{r}</span>
+<span class="pre">plink_dir</span> <span class="pre">&lt;-</span> <span class="pre">NULL;</span>
+<span class="pre">pval_cutoff_gwas</span> <span class="pre">&lt;-</span> <span class="pre">5e-8;</span>
+<span class="pre">pval_cutoff_gwis</span> <span class="pre">&lt;-</span> <span class="pre">5e-8;</span>
+<span class="pre">r2_cutoff</span> <span class="pre">&lt;-</span> <span class="pre">0.3;</span>
+<span class="pre">kb_cutoff</span> <span class="pre">&lt;-</span> <span class="pre">1024;</span>
+<span class="pre">maf_cutoff</span> <span class="pre">&lt;-</span> <span class="pre">0.05;</span>
+<span class="pre">lam</span> <span class="pre">&lt;-</span> <span class="pre">0.1;</span>
+<span class="pre">coreNum</span> <span class="pre">&lt;-</span> <span class="pre">1;</span>
+<span class="pre">intersect_mode</span> <span class="pre">&lt;-</span> <span class="pre">FALSE</span>
+<span class="pre">`</span></code></p>
+<p><a href="#id49"><span class="problematic" id="id50">``</span></a><a href="#id51"><span class="problematic" id="id52">`</span></a>{r}
+ivselect.res &lt;- ivselect(expgwas.match, expgwis.match, outgwas.match, outgwis.match,</p>
+<blockquote>
+<div><p>stringname3, block_file, plink_dir,
+pval_cutoff_gwas, pval_cutoff_gwis, r2_cutoff,
+kb_cutoff, maf_cutoff, lam, coreNum, intersect_mode);</p>
+</div></blockquote>
+<p>snp.causal &lt;- ivselect.res$snp.causal;
+gammah1 &lt;- ivselect.res$gammah1;
+gammah3 &lt;- ivselect.res$gammah3;
+Gammah1 &lt;- ivselect.res$Gammah1;
+Gammah3 &lt;- ivselect.res$Gammah3;
+se1 &lt;- ivselect.res$se1;
+se2 &lt;- ivselect.res$se2;
+se3 &lt;- ivselect.res$se3;
+se4 &lt;- ivselect.res$se4;
+R &lt;- ivselect.res$R;
+<a href="#id53"><span class="problematic" id="id54">``</span></a><a href="#id55"><span class="problematic" id="id56">`</span></a></p>
+<p>When the exposure and outcome samples are independent, the sample
+correlation parameters <cite>rho1</cite> (for GWAS) and <cite>rho2</cite> (for GWIS) are set
+to 0.</p>
+<p><code class="docutils literal notranslate"><span class="pre">`{r}</span>
+<span class="pre">rho1</span> <span class="pre">&lt;-</span> <span class="pre">0;</span> <span class="pre">rho2</span> <span class="pre">&lt;-</span> <span class="pre">0;</span>
+<span class="pre">`</span></code></p>
+<p>For overlap samples, Since $rho_1$ and $rho_2$ are estimated using summary
+statistics among independent variants, we select independent SNPs using
+the clumping algorithm ($r^2$ threshold denoted by <cite>ld_r2_thresh</cite>).
+<cite>pth</cite> is the critical value adapted to the truncated normal distribution
+in the estimation procedure. <cite>lambda</cite> is the shrinkage turning parameter
+for LD estimator.</p>
+<p><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">ld_r2_thresh</span> <span class="pre">&lt;-</span> <span class="pre">0.001;</span>
+<span class="pre">lambad</span> <span class="pre">&lt;-</span> <span class="pre">0.85;</span>
+<span class="pre">pth</span> <span class="pre">&lt;-</span> <span class="pre">1.96;</span>
+<span class="pre">RhoEst1</span> <span class="pre">&lt;-</span> <span class="pre">EstRhofun(expgwas,</span> <span class="pre">outgwas,</span> <span class="pre">stringname3,</span> <span class="pre">ld_r2_thresh,</span> <span class="pre">lambad,</span> <span class="pre">pth);</span>
+<span class="pre">rho1</span> <span class="pre">&lt;-</span> <span class="pre">mean(RhoEst1$Rhores);</span>
+<span class="pre">RhoEst2</span> <span class="pre">&lt;-</span> <span class="pre">EstRhofun(expgwas,</span> <span class="pre">outgwas,</span> <span class="pre">stringname3,</span> <span class="pre">ld_r2_thresh,</span> <span class="pre">lambad,</span> <span class="pre">pth);</span>
+<span class="pre">rho2</span> <span class="pre">&lt;-</span> <span class="pre">mean(RhoEst2$Rhores);</span>
+<span class="pre">`</span></code></p>
+<p>Now we can fit CHESS using the function <em>CHESS</em>.</p>
+<p><a href="#id57"><span class="problematic" id="id58">``</span></a><a href="#id59"><span class="problematic" id="id60">`</span></a>{r}
+res &lt;- CHESS(gammah1, gammah3, Gammah1, Gammah3,</p>
+<blockquote>
+<div><p>se1, se2, se3, se4, R, rho1, rho2)</p>
+</div></blockquote>
+<p>str(res)
+<a href="#id61"><span class="problematic" id="id62">``</span></a><a href="#id63"><span class="problematic" id="id64">`</span></a></p>
+<p>Check the convergence of Gibbs sampler using <cite>traceplot</cite>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">`{r}</span>
+<span class="pre">traceplot(res$Beta1res);</span>
+<span class="pre">traceplot(res$Beta4res);</span>
+<span class="pre">`</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">`{r}</span>
+<span class="pre">CHESSbeta1</span> <span class="pre">&lt;-</span> <span class="pre">res$Beta1res;</span>
+<span class="pre">CHESSse1</span> <span class="pre">&lt;-</span> <span class="pre">res$Beta1.se;</span>
+<span class="pre">CHESSpvalue1</span> <span class="pre">&lt;-</span> <span class="pre">res$Beta1.pval;</span>
+<span class="pre">CHESSbeta4</span> <span class="pre">&lt;-</span> <span class="pre">res$Beta4res;</span>
+<span class="pre">CHESSse4</span> <span class="pre">&lt;-</span> <span class="pre">res$Beta4.se;</span>
+<span class="pre">CHESSpvalue4</span> <span class="pre">&lt;-</span> <span class="pre">res$Beta4.pval;</span>
+<span class="pre">`</span></code></p>
+<p><a href="#id65"><span class="problematic" id="id66">``</span></a><a href="#id67"><span class="problematic" id="id68">`</span></a>{r results=&quot;hide&quot;}
+cat(&quot;The estimated main effect of Testosterone on BD: &quot;, CHESSbeta1,</p>
+<blockquote>
+<div><p>&quot;n with Standard error: &quot;, CHESSse1, &quot;and P-value: &quot;, CHESSpvalue1);</p>
+</div></blockquote>
+<p><a href="#id69"><span class="problematic" id="id70">``</span></a><a href="#id71"><span class="problematic" id="id72">`</span></a></p>
+<p><a href="#id73"><span class="problematic" id="id74">``</span></a><a href="#id75"><span class="problematic" id="id76">`</span></a>{r results=&quot;hide&quot;}
+cat(&quot;The estimated interaction effect of Testosterone on BD: &quot;, CHESSbeta4,</p>
+<blockquote>
+<div><p>&quot;n with Standard error: &quot;, CHESSse4, &quot;and P-value: &quot;, CHESSpvalue4)</p>
+</div></blockquote>
+<p><a href="#id77"><span class="problematic" id="id78">``</span></a><a href="#id79"><span class="problematic" id="id80">`</span></a></p>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">CHESS</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="提交" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>导航</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, SunPeng.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/CHESS.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+    <script>
+
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'G-XXXXXXXXXX']);
+      _gaq.push(['_setDomainName', 'none']);
+      _gaq.push(['_setAllowLinker', true]);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script'); ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'https://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+
+    </script>
+    
+  </body>
+</html>
