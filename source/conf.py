@@ -8,7 +8,7 @@
 
 import os, sys
 # 把项目根目录放进 sys.path，这样autodoc才能import到package
-sys.path.insert(0, os.path.abspath('../..'))  # 根据实际目录调整
+sys. path.insert(0, os.path.abspath('../..'))  # 根据实际目录调整
 
 project = 'CHESS'
 copyright = '2025, SunPeng'
@@ -34,25 +34,6 @@ source_suffix = ['.rst', 'rest', '.md']
 
 
 
-html_theme_options = {
-    'analytics_id': 'G-XXXXXXXXXX',  #  Provided by Google in your dashboard
-    'analytics_anonymize_ip': False,
-    'logo_only': False,
-    'prev_next_buttons_location': 'bottom',
-    'style_external_links': False,
-    'vcs_pageview_mode': '',
-    'style_nav_header_background': 'white',
-    'flyout_display': 'hidden',
-    'version_selector': True,
-    'language_selector': True,
-    # Toc options
-    'collapse_navigation': True,
-    'sticky_navigation': True,
-    'navigation_depth': 4,
-    'includehidden': True,
-    'titles_only': False
-}
-
 language = 'zh_CN'
 
 templates_path = ['_templates']
@@ -65,7 +46,7 @@ exclude_patterns = ['recommonmark']
 
 <<<<<<< HEAD
 =======
-html_theme = 'sphinx-rtd-theme'
+html_theme = 'sphinx_rtd_theme'
 >>>>>>> fae03db2c18ef14198079983e285fc9bb716c510
 html_static_path = ['_static']
-html_theme = 'sphinx-rtd-theme'
+html_theme = 'sphinx_rtd_theme'
